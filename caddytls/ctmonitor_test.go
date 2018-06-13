@@ -34,13 +34,13 @@ func TestLooksSuspiciouslySimilar(t *testing.T) {
 //I'm not sure if this test case is working... I didn't format it like the other one,
 // and now it's not producing coverage percentage like the other one is. ask matt???
 // or maybe try not to bother him too much and figure it out yourself.
-func TestfindPhonies(t *testing.T) {
+func TestFindPhonies(t *testing.T) {
 	var step uint64 = 10
 	logUrl := "https://ct.googleapis.com/rocketeer"
 	max := getSTHsize(logUrl)
 	for i := max - 6*step; i < max-3*step; i += step {
-		logTest := getSAN(logUrl, i, i+step)
-		caddyTest := getSAN(logUrl, i+step/2, i+step/2)
+		logTest := getSANs(logUrl, i, i+step)
+		caddyTest := getSANs(logUrl, i+step/2, i+step/2)
 		output1 := findPhonies(caddyTest, logTest)
 		//this one should not find anything. although, the caddyTest
 		//was drawn from logTest (and so it might seem they should match)
@@ -51,7 +51,7 @@ func TestfindPhonies(t *testing.T) {
 		}
 		output2 := findPhonies(caddyTest2, logTest)
 
-		caddyTest3 := getSAN(logUrl, i+2*step, i+2*step) //outside of range
+		caddyTest3 := getSANs(logUrl, i+2*step, i+2*step) //outside of range
 		output3 := findPhonies(caddyTest3, logTest)
 
 		if len(output1) > 0 {

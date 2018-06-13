@@ -1,3 +1,6 @@
+/*
+Ctmonitor will monitor certificate transparency logs and it will compare the caddy maintained certificate against the ones found in the logs and it will alert the user that there might have been an mississuance of the certificate.
+*/
 package caddytls
 
 import (
@@ -7,11 +10,40 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"bytes"
+	//"flag"
+	//"reflect"
 
+	ct "github.com/google/certificate-transparency-go"
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/mholt/caddy"
+
 )
+
+// CheckName will take in a string that will be used to look up a certificate in the map, the corresponding certificate that the name comes from
+// and the certMap to check against, the certMap should be the certificates that caddy is monitoring.  Should append to a list of dangerous
+// certificates if the corresponding certificate is not the same as the one that caddy contains.
+func checkName(name string, cert ct.LogEntry, certMap map[string][]Certificate) bool {
+	//so if I find the matching cert from the name, then I want to compare them to see if they are the same cert based off of their byte size.
+	//for i,
+	if matchingCert, ok := certMap[name]; ok {
+		matchingCert = matchingCert
+		//I would want to make a for loop and check all of the certificates for this slice.
+		//replace the 0 in matchingCert to the iterator variable.
+		if (bytes.Equal(cert.X509Cert.Raw, matchingCert[0].Certificate.Certificate[0])) {
+			fmt.Println("The certs are the same")
+			return true
+		} else {
+			fmt.Println("The certs are different, do not trust it")
+		}
+	} else {
+		fmt.Println("The cert was not found")
+	}
+	return false
+}
+
+
 
 func init() {
 	go monitorstuff()
@@ -31,7 +63,7 @@ func monitorstuff() {
 			if i+stepSize > newSize { //if we've gone beyond the newest entry in the log
 				sizeToGet = uint64(newSize - i)
 			}
-			fmt.Println(findPhonies(getMonitoredCerts(), getSAN(logUrl, i, i+sizeToGet)))
+			fmt.Println(findPhonies(getMonitoredCerts(), getSANs(logUrl, i, i+sizeToGet)))
 			//now that we've found 'em, what do we do with them????
 		}
 		initialSize = newSize //so that we don't rescan old entries
@@ -57,7 +89,34 @@ func getMonitoredCerts() (monitoredCerts map[string][]string) {
 	return
 }
 
-func getSAN(url string, begin, end uint64) (certNames map[string][]string) {
+// GetCaddyCerts retrieves the certificates that caddy monitors and returns them as a map of
+// their respective byte arrays casted as a string to the array of SAN
+func getCaddyCerts() map[string][]Certificate {
+	var caddyCerts = make (map[string][]Certificate)
+	for _, inst := range caddy.Instances() {
+		inst.StorageMu.RLock()
+		certCache, ok := inst.Storage[CertCacheInstStorageKey].(*certificateCache)
+		inst.StorageMu.RUnlock()
+		if !ok || certCache == nil {
+			continue
+		}
+		certCache.RLock()
+		for _, certificate := range certCache.cache {//Here is where the map is being created.
+			for _, eachName := range certificate.Names {
+				if _, ok := caddyCerts[eachName]; ok {
+					caddyCerts[eachName] = append(caddyCerts[eachName], certificate)
+				} else {
+					caddyCerts[eachName] = []Certificate{certificate}
+				}
+			}
+		}
+		certCache.RUnlock()//Create a slice from the map and return that as well, or just
+		//make the map here instead of the slice.***************************************
+	}
+	return caddyCerts
+}
+
+func getSANs(url string, begin, end uint64) (certNames map[string][]string) {
 	certNames = make(map[string][]string)
 	var opts jsonclient.Options
 	httpClient := &http.Client{ //possibly refactor this code so this is a constant in the file?
@@ -86,6 +145,43 @@ func getSAN(url string, begin, end uint64) (certNames map[string][]string) {
 		certNames[string(entry.X509Cert.Raw)] = entry.X509Cert.DNSNames //creates map from raw bytes (cast as string) to SAN
 	}
 	return
+}
+
+// GetSAN retrieves the Subject Alternative Names from the given URI in the range [begin, end) and returns a slice of slices with all of the SANs for each
+//certificate as well as a slice of all of the logs.
+func getSAN(uri string, beginning, end int64) ([][]string, []ct.LogEntry) {
+	//, retrievedEntries
+	var opts jsonclient.Options
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSHandshakeTimeout:   30 * time.Second,
+			ResponseHeaderTimeout: 30 * time.Second,
+			MaxIdleConnsPerHost:   10,
+			DisableKeepAlives:     false,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+
+	ctx := context.Background()
+	logClient, err := client.New(uri, httpClient, opts)
+	if err != nil { //Create the client
+		log.Fatalf("logClient creation failed: %v", err)
+	}
+	entries, err := logClient.GetEntries(ctx, beginning, end)
+	if err != nil { //Get the entries
+		log.Fatal(err)
+	}
+	//fmt.Println("Entries type: ", reflect.TypeOf(entries))
+	DNSAlternateNames := make([][]string, len(entries))
+
+	for i := range DNSAlternateNames {
+		DNSAlternateNames[i] = entries[i].X509Cert.DNSNames
+	}
+	//make a slice of slices so that we can access all of the DNSNames.
+	return DNSAlternateNames, entries
 }
 
 //Pretty self explanitory. It gets the size of the Signed Tree Head of the ct log found at the given url
