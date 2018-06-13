@@ -7,7 +7,7 @@ func TestLooksSuspiciouslySimilar(t *testing.T) {
 		s1, s2   string
 		expected bool
 	}{
-		{"https://ct.googleapis.com", "https://ct.Google-apis.com", true},
+		{"ct.googleapis.com", "ct.Google-apis.com", true},
 		{"OneFluffyBunny.net", "onefluffy-bunny.org", true},
 		{"", "testwithnothing.org", false},
 		{"testwithnothing.net", "", false},
