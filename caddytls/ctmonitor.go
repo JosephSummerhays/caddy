@@ -19,33 +19,7 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/mholt/caddy"
 
-)/*
-//I don't think that I will need this because I am building the map within
-//the getCaddyCerts function.
-func buildMap(certs [][]string, logs []Certificate) map[string][]Certificate {
-	certs = certs
-	//Creates certMap mapping a SAN to the corresponding certificate
-	var certMap = make(map[string][]Certificate)
-
-	//A double nested for loop that will go over each certificate and extract the SANs from each
-	//certificate and map it back to the certificate for easier access.
-	for i, certificate := range logs {
-		i = i
-		SANs := make([]string, len(certificate.X509Cert.DNSNames)) //makes a slice of type string the size of the SANs.
-		SANs = certificate.X509Cert.DNSNames //assigns the SANs to the slice.
-		//SANs = SANs
-		//For each SAN, if it is found in the map it appends the certificate, otherwise adds a new entry to the map.
-		for _, SAN := range SANs {
-			if _, ok := certMap[SAN]; ok {
-				certMap[SAN] = append(certMap[SAN], certificate)
-			} else {
-				certMap[SAN] = []Certificate{certificate}
-			}
-		}
-	}
-	return certMap
-}*/
-
+)
 
 // CheckName will take in a string that will be used to look up a certificate in the map, the corresponding certificate that the name comes from
 // and the certMap to check against, the certMap should be the certificates that caddy is monitoring.  Should append to a list of dangerous
@@ -141,36 +115,6 @@ func getCaddyCerts() map[string][]Certificate {
 	}
 	return caddyCerts
 }
-
-
-// gets the certificates that caddy monitors and returns them as a map of
-// their respective byte arrays casted as a string to the array of SAN
-func getCaddyCertsWithInstance(instance caddy.Instance) map[string][]Certificate {
-	var caddyCerts = make (map[string][]Certificate)
-	for _, inst := range caddy.Instances() {
-	//for _, inst := range instance {
-		inst.StorageMu.RLock()
-		certCache, ok := inst.Storage[CertCacheInstStorageKey].(*certificateCache)
-		inst.StorageMu.RUnlock()
-		if !ok || certCache == nil {
-			continue
-		}
-		certCache.RLock()
-		for _, certificate := range certCache.cache {//Here is where the map is being created.
-			for _, eachName := range certificate.Names {
-				if _, ok := caddyCerts[eachName]; ok {
-					caddyCerts[eachName] = append(caddyCerts[eachName], certificate)
-				} else {
-					caddyCerts[eachName] = []Certificate{certificate}
-				}
-			}
-		}
-		certCache.RUnlock()//Create a slice from the map and return that as well, or just
-		//make the map here instead of the slice.***************************************
-	}
-	return caddyCerts
-}
-
 
 func getSANs(url string, begin, end uint64) (certNames map[string][]string) {
 	certNames = make(map[string][]string)
