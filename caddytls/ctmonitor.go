@@ -4,13 +4,13 @@ Ctmonitor will monitor certificate transparency logs and it will compare the cad
 package caddytls
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
-	"bytes"
 	//"flag"
 	//"reflect"
 
@@ -18,7 +18,6 @@ import (
 	"github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/mholt/caddy"
-
 )
 
 // CheckName will take in a string that will be used to look up a certificate in the map, the corresponding certificate that the name comes from
@@ -31,7 +30,7 @@ func checkName(name string, cert ct.LogEntry, certMap map[string][]Certificate) 
 		matchingCert = matchingCert
 		//I would want to make a for loop and check all of the certificates for this slice.
 		//replace the 0 in matchingCert to the iterator variable.
-		if (bytes.Equal(cert.X509Cert.Raw, matchingCert[0].Certificate.Certificate[0])) {
+		if bytes.Equal(cert.X509Cert.Raw, matchingCert[0].Certificate.Certificate[0]) {
 			fmt.Println("The certs are the same")
 			return true
 		} else {
@@ -42,8 +41,6 @@ func checkName(name string, cert ct.LogEntry, certMap map[string][]Certificate) 
 	}
 	return false
 }
-
-
 
 func init() {
 	go monitorstuff()
@@ -92,7 +89,7 @@ func getMonitoredCerts() (monitoredCerts map[string][]string) {
 // GetCaddyCerts retrieves the certificates that caddy monitors and returns them as a map of
 // their respective byte arrays casted as a string to the array of SAN
 func getCaddyCerts() map[string][]Certificate {
-	var caddyCerts = make (map[string][]Certificate)
+	var caddyCerts = make(map[string][]Certificate)
 	for _, inst := range caddy.Instances() {
 		inst.StorageMu.RLock()
 		certCache, ok := inst.Storage[CertCacheInstStorageKey].(*certificateCache)
@@ -101,7 +98,7 @@ func getCaddyCerts() map[string][]Certificate {
 			continue
 		}
 		certCache.RLock()
-		for _, certificate := range certCache.cache {//Here is where the map is being created.
+		for _, certificate := range certCache.cache { //Here is where the map is being created.
 			for _, eachName := range certificate.Names {
 				if _, ok := caddyCerts[eachName]; ok {
 					caddyCerts[eachName] = append(caddyCerts[eachName], certificate)
@@ -110,7 +107,7 @@ func getCaddyCerts() map[string][]Certificate {
 				}
 			}
 		}
-		certCache.RUnlock()//Create a slice from the map and return that as well, or just
+		certCache.RUnlock() //Create a slice from the map and return that as well, or just
 		//make the map here instead of the slice.***************************************
 	}
 	return caddyCerts
@@ -214,7 +211,7 @@ func getSTHsize(url string) uint64 {
 }
 
 // removes the top level domain, any dashes, and puts it into lower case.
-//techinically speaking, all domain names are case insensitive, but I wasn't
+// techinically speaking, all domain names are case insensitive, but I wasn't
 // sure if ct Logs were required to maintain that standard.
 func simplifyName(name string) string {
 	if len(name) == 0 {
@@ -223,13 +220,31 @@ func simplifyName(name string) string {
 	return strings.ToLower(strings.Replace(name[0:strings.LastIndex(name, ".")], "-", "", -1)) //removes the top level domain, puts the url into lower case, removes dashes
 }
 
-// returns true if s1 looks suspiciouslySimilar to s2.
-// if either string is empty it should return false.
-// currently not passing all test cases. we'll develope a more robust version later.
-// if you want to edit the function, just comment this out and create your own of the same
-// signature. see if you can pass my test cases.
+/*
+returns true if s1 looks suspiciouslySimilar to s2.
+if either string is empty it should return false.
+currently not passing all test cases. we'll develope a more robust version later.
+if you want to edit the function, just comment this out and create your own of the same
+signature. see if you can pass my test cases.
+*/
+// func looksSuspiciouslySimilar(s1, s2 string) bool {
+// 	return (strings.Contains(simplifyName(s1), simplifyName(s2)) || strings.Contains(simplifyName(s1), simplifyName(s2)))
+// }
 func looksSuspiciouslySimilar(s1, s2 string) bool {
-	return strings.Contains(simplifyName(s1), simplifyName(s2))
+	s1 = simplifyName(s1)
+	s2 = simplifyName(s2)
+	fmt.Printf("\nlooking for %v in %v\n", s1, s2)
+	for i, j := 0, 0; i < len(s1); i = j + 1 { // plus one to skip the dot.
+		j = strings.Index(s2[i:], ".")
+		fmt.Printf("\ti=%v, j=%v", i, j)
+		if j == -1 {
+			j = len(s2) - 1
+		}
+		if strings.Contains(s1, s2[i:j]) {
+			return true
+		}
+	}
+	return false
 }
 
 func findPhonies(caddyCerts, logCerts map[string][]string) (phonies []string) {
