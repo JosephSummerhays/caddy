@@ -217,6 +217,7 @@ func simplifyName(name string) string {
 	if len(name) == 0 {
 		return name
 	}
+	fmt.Println(name)
 	return strings.ToLower(strings.Replace(name[0:strings.LastIndex(name, ".")], "-", "", -1)) //removes the top level domain, puts the url into lower case, removes dashes
 }
 
@@ -233,13 +234,16 @@ signature. see if you can pass my test cases.
 func looksSuspiciouslySimilar(s1, s2 string) bool {
 	s1 = simplifyName(s1)
 	s2 = simplifyName(s2)
+	if len(s1) == 0 || len(s2) == 0 {
+		return false
+	}
 	fmt.Printf("\nlooking for %v in %v\n", s1, s2)
-	for i, j := 0, 0; i < len(s1); i = j + 1 { // plus one to skip the dot.
+	for i, j := 0, 0; i < len(s2); i = j + 1 { // plus one to skip the dot.
 		j = strings.Index(s2[i:], ".")
-		fmt.Printf("\ti=%v, j=%v", i, j)
 		if j == -1 {
 			j = len(s2) - 1
 		}
+		fmt.Printf("\ti=%v, j=%v", i, j)
 		if strings.Contains(s1, s2[i:j]) {
 			return true
 		}

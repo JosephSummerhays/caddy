@@ -13,7 +13,8 @@ func TestLooksSuspiciouslySimilar(t *testing.T) {
 		{"testwithnothing.net", "", false},
 		{"", "", false},
 		{"twoveryUnsimilar.com", "domainNames.org", false},
-		{"apple.com", "apple.com.this.is.a.funnylookin.setof.subdomains.co", true},
+		{"www.apple.com", "www.orange.net", false},
+		{"apple.com", "apple.com.thisisa.funnylookin.setof.subdomains.co", true},
 		{"apple.com.this.is.a.funnylookin.setof.subdomains.co", "apple.com", true},
 		{"www.apple.com", "apple.com.this.is.a.funnylookin.setof.subdomains.co", true},
 		{"apple.com", "www.apple.com", true},
@@ -29,6 +30,7 @@ func TestLooksSuspiciouslySimilar(t *testing.T) {
 			t.Errorf("looksSuspicouslySimilarTo(%q,%q) == %v, but we expected %v", c.s1, c.s2, output, c.expected)
 		}
 	}
+
 }
 
 //I'm not sure if this test case is working... I didn't format it like the other one,
