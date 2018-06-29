@@ -7,8 +7,6 @@ import (
 	"io"
 	"os"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestLooksSuspiciouslySimilar(t *testing.T) {
@@ -45,6 +43,15 @@ func TestLooksSuspiciouslySimilar(t *testing.T) {
 	}
 }
 
+func delete_empty(s []string) (r []string) {
+	for _, str := range s {
+		if str != "" {
+			r = append(r, str)
+		}
+	}
+	return r
+}
+
 func TestFindPhoniesFromFile(t *testing.T) {
 	fileName := "hostAndSANs.csv"
 	file, err := os.Open(fileName)
@@ -52,30 +59,27 @@ func TestFindPhoniesFromFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer file.Close()
+	reader := csv.NewReader(bufio.NewReader(file))
+	line, err := reader.Read()
+	line = delete_empty(line)
+	if err != nil && err != io.EOF {
+		t.Fatal(err)
+	}
 	totNumerator := 0
 	totDenominator := 0
-	reader := csv.NewReader(bufio.NewReader(file))
-	for {
-		line, err := reader.Read()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatal(err)
-		}
-
+	//for err != io.EOF {
+	for i := 0; i < 2; i++ {
 		var certArray, phoniesArray []string
 		certArray = line[1:]
 		phoniesArray = append(phoniesArray, line[0])
-		for {
-			identicalLine, err := reader.Read()
-			if err == io.EOF {
-				break
-			} else if err != nil {
+		line, err = reader.Read()
+		line = delete_empty(line)
+		for len(line) == 1 {
+			phoniesArray = append(phoniesArray, line[0])
+			line, err = reader.Read()
+			line = delete_empty(line)
+			if err != nil && err != io.EOF {
 				t.Fatal(err)
-			}
-			if cmp.Equal(certArray, identicalLine[1:]) {
-				phoniesArray = append(phoniesArray, identicalLine[0])
 			}
 		}
 		caddyMap := make(map[string][]string)
@@ -84,7 +88,7 @@ func TestFindPhoniesFromFile(t *testing.T) {
 		phoniesMap["b"] = phoniesArray
 		foundPhonies := findPhonies(caddyMap, phoniesMap)
 		fmt.Printf("found %v out of %v \n", foundPhonies, phoniesArray)
-		fmt.Printf("that's %g%%", (float32(len(foundPhonies))/float32(len(phoniesArray)))*100.0)
+		fmt.Printf("that's %g%%\n\n", (float32(len(foundPhonies))/float32(len(phoniesArray)))*100.0)
 		totNumerator += len(foundPhonies)
 		totDenominator += len(phoniesArray)
 	}

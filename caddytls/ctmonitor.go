@@ -253,10 +253,11 @@ func findPhonies(caddyCerts, logCerts map[string][]string) (phonies []string) {
 	for _, caddyNames := range caddyCerts {
 		for _, logNames := range logCerts {
 			//Possible optimization here: edit logNames and caddyNames to remove redundant SAN
-			for _, caddyName := range caddyNames {
-				for _, logName := range logNames {
+			for _, logName := range logNames {
+				for _, caddyName := range caddyNames {
 					if looksSuspiciouslySimilar(logName, caddyName) {
 						phonies = append(phonies, logName)
+						break
 					}
 				}
 			}
